@@ -21,9 +21,16 @@ public class MutableBloomierFilterTest extends AbstractBloomierFilterTest {
    private MutableBloomierFilter<Integer, Integer> uut;
 
    @Override
-   protected void createBloomFilter(Map<Integer, Integer> map) throws TimeoutException {
-      uut = new MutableBloomierFilter<Integer, Integer>(map, map.keySet().size() * 10, 10, 64,
-                                                        10000);
+   protected Object createBloomFilter() throws TimeoutException {
+      uut = new MutableBloomierFilter<Integer, Integer>(inBloomierFilter, inBloomierFilter.keySet().size() * 10, 10, 64,
+                                                  10000);
+      return uut;
+   }
+
+   @Override
+   public void clean() {
+      uut = null;
+      System.gc();
    }
 
    @Override
@@ -37,8 +44,8 @@ public class MutableBloomierFilterTest extends AbstractBloomierFilterTest {
       uut.set(key, 10);
       Integer value = uut.get(key);
 
-      assert value == null : "Error: False negative is not allowed with Bloomier Filter (key=" + key +
-            ",expected value=10)";
+      assert value != null : "Error: False negative is not allowed with Bloomier Filter (key=" + key +
+            ",expected value=10, value=" + value + ")";
 
       assert 10 == value.intValue() : "Error. The key " + key + " must be in the Bloomier Filter with value 10" +
             ", but the Bloomier Filter returned " + value;
@@ -48,5 +55,6 @@ public class MutableBloomierFilterTest extends AbstractBloomierFilterTest {
    public void illegalModify() {
       Integer key = notInBloomierFilter.iterator().next();
       uut.set(key, 10);
+      assert false : "Expected IllegalArgumentException!";
    }
 }

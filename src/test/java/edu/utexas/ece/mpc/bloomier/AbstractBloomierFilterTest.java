@@ -1,12 +1,9 @@
 package edu.utexas.ece.mpc.bloomier;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -23,9 +20,6 @@ import java.util.concurrent.TimeoutException;
 public abstract class AbstractBloomierFilterTest {
 
    private static final int NUMBER_OF_KEYS = 10000;
-   private static final NumberFormat MEM_FMT = new DecimalFormat("##,###.####");
-
-   private final MemoryMXBean memoryMXBean = ManagementFactory.getMemoryMXBean();
 
    protected final Map<Integer, Integer> inBloomierFilter = new HashMap<Integer, Integer>();
    protected final Set<Integer> notInBloomierFilter = new HashSet<Integer>();
@@ -70,48 +64,17 @@ public abstract class AbstractBloomierFilterTest {
       alreadySetUp = true;
    }
 
-   protected long getMemoryUsed() {
-      //in bytes!
-      System.gc();
-      return memoryMXBean.getHeapMemoryUsage().getUsed();
-   }
-
-   protected String mem2String(long memory) {
-      double val = memory;
-      int mag = 0;
-      while (val > 1024) {
-         val = val / 1024;
-         mag++;
-      }
-
-      String formatted = MEM_FMT.format(val);
-      switch (mag) {
-         case 0:
-            return formatted + " bytes";
-         case 1:
-            return formatted + " kb";
-         case 2:
-            return formatted + " Mb";
-         case 3:
-            return formatted + " Gb";
-         default:
-            return "WTF?";
-      }
-   }
-
    protected abstract Integer getValueOf(Integer key);
 
-   protected abstract void createBloomFilter(Map<Integer, Integer> map) throws TimeoutException;
+   protected abstract Object createBloomFilter() throws TimeoutException;
+
+   @After
+   public abstract void clean();
 
    @Before
    public void setUp() throws Exception {
       setUpMaps();
-
-      long memUsedBefore = getMemoryUsed();
-      createBloomFilter(inBloomierFilter);
-      long memUsedAfter = getMemoryUsed();
-      System.out.println("Memory used before the Bloomier Filter creation is " + mem2String(memUsedBefore) +
-                               ", and after is " + mem2String(memUsedAfter));
+      createBloomFilter();
    }
 
    @Test
@@ -121,11 +84,11 @@ public abstract class AbstractBloomierFilterTest {
       Integer expectedValue = entry.getValue();
       Integer value = getValueOf(key);
 
-      assert value == null : "Error: False negative is not allowed with Bloomier Filter (key=" + key +
-            ",expected value=" + expectedValue + ")";
+      assert value != null : "Error: False negative is not allowed with Bloomier Filter (key=" + key +
+            ",expected value=" + expectedValue + ", value=" + value + ")";
 
-      assert value.intValue() == expectedValue.intValue() : "Error. The key " + key + " must be in the Bloomier Filter with value " +
-            expectedValue + ", but the Bloomier Filter returned " + value;
+      assert value.intValue() == expectedValue.intValue() : "Error: Wrong value returned (key=" + key +
+            ",expected value=" + expectedValue + ", value=" + value + ")";
    }
 
    @Test
@@ -133,7 +96,8 @@ public abstract class AbstractBloomierFilterTest {
       Integer key = notInBloomierFilter.iterator().next();
       Integer value = getValueOf(key);
 
-      assert value == null : "Error. The key " + key + " should *not* be in the Bloomier Filter but it returned " + value;
+      assert value == null : "Error: false positive detected. (key=" + key +
+            ",expected value=null, value=" + value + ")";
    }
 
 
@@ -149,11 +113,12 @@ public abstract class AbstractBloomierFilterTest {
 
          if (value == null) {
             falseNegativeCount++;
-            System.out.println("False negative detected! key=" + key + ", expected value=" + expectedValue);
+            System.out.println("False negative detected! (key=" + key +
+                                     ",expected value=" + expectedValue + ", value=" + value + ")");
          } else if (value.intValue() != expectedValue.intValue()) {
             wrongValueCount++;
-            System.out.println("Wrong value detected! key=" + key + ", expected value=" + expectedValue +
-                                     ", obtained value=" + value);
+            System.out.println("Wrong value detected!(key=" + key +
+                                     ",expected value=" + expectedValue + ", value=" + value + ")");
          }
       }
 
@@ -169,7 +134,7 @@ public abstract class AbstractBloomierFilterTest {
 
          if (getValueOf(key) != null) {
             falsePositiveCount++;
-            System.err.println("False positive detected! key=" + key);
+            System.out.println("False positive detected! key=" + key);
          }
       }
       //false positive can happen
