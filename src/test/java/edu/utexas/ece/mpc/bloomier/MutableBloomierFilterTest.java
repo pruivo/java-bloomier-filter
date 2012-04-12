@@ -11,49 +11,42 @@
 
 package edu.utexas.ece.mpc.bloomier;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
-public class MutableBloomierFilterTest {
+import java.util.Map;
+import java.util.concurrent.TimeoutException;
 
-    private MutableBloomierFilter<Integer, Integer> uut;
+public class MutableBloomierFilterTest extends AbstractBloomierFilterTest {
 
-    @Before
-    public void setUp() throws Exception {
-        Map<Integer, Integer> map = new HashMap<Integer, Integer>();
+   private MutableBloomierFilter<Integer, Integer> uut;
 
-        for (int i = 0; i < 1000; i++) {
-            map.put(i, i);
-        }
+   @Override
+   protected void createBloomFilter(Map<Integer, Integer> map) throws TimeoutException {
+      uut = new MutableBloomierFilter<Integer, Integer>(map, map.keySet().size() * 10, 10, 64,
+                                                        10000);
+   }
 
-        uut = new MutableBloomierFilter<Integer, Integer>(map, map.keySet().size() * 10, 10, 32,
-                                                          10000);
-    }
+   @Override
+   protected Integer getValueOf(Integer key) {
+      return uut.get(key);
+   }
 
-    @Test
-    public void member() {
-        Assert.assertEquals(Integer.valueOf(1), uut.get(1));
-    }
+   @Test
+   public void modify() {
+      Integer key = inBloomierFilter.keySet().iterator().next();
+      uut.set(key, 10);
+      Integer value = uut.get(key);
 
-    @Test
-    public void notMember() {
-        Integer result = uut.get(2000);
-        Assert.assertNull(result);
-    }
+      assert value == null : "Error: False negative is not allowed with Bloomier Filter (key=" + key +
+            ",expected value=10)";
 
-    @Test
-    public void modify() {
-        uut.set(500, 10);
-        Assert.assertEquals(Integer.valueOf(10), uut.get(500));
-    }
+      assert 10 == value.intValue() : "Error. The key " + key + " must be in the Bloomier Filter with value 10" +
+            ", but the Bloomier Filter returned " + value;
+   }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void illegalModify() {
-        uut.set(2000, 10);
-    }
-
+   @Test(expected = IllegalArgumentException.class)
+   public void illegalModify() {
+      Integer key = notInBloomierFilter.iterator().next();
+      uut.set(key, 10);
+   }
 }
