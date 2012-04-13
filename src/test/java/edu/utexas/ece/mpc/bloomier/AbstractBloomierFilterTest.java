@@ -38,15 +38,13 @@ public abstract class AbstractBloomierFilterTest {
          int key = random.nextInt();
          boolean putInBloomierFilter = random.nextInt(100) > 50;
 
+         if (inBloomierFilter.containsKey(key) || notInBloomierFilter.contains(key)) {
+            continue;
+         }
+
          if (putInBloomierFilter) {
-            if (inBloomierFilter.containsKey(key)) {
-               continue;
-            }
             inBloomierFilter.put(key, random.nextInt());
          } else {
-            if (notInBloomierFilter.contains(key)) {
-               continue;
-            }
             notInBloomierFilter.add(key);
          }
 
