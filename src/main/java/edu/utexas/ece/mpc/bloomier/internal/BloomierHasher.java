@@ -18,94 +18,104 @@ import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayDeque;
+import java.util.HashSet;
 import java.util.Queue;
+import java.util.Set;
 
 public class BloomierHasher<K> {
-    // TODO: memoize/cache hashes
-    private long hashSeed;
+   // TODO: memoize/cache hashes
+   private long hashSeed;
 
-    private int m;
-    private int k;
-    private int q;
+   private int m;
+   private int k;
+   private int q;
 
-    public BloomierHasher(long hashSeed, int m, int k, int q) {
-        this.hashSeed = hashSeed;
-        this.m = m;
-        this.k = k;
-        this.q = q;
-    }
+   public BloomierHasher(long hashSeed, int m, int k, int q) {
+      this.hashSeed = hashSeed;
+      this.m = m;
+      this.k = k;
+      this.q = q;
+   }
 
-    public int[] getNeighborhood(K key) {
-        DataInputStream stream = new DataInputStream(new HashInputStream(key));
+   public int[] getNeighborhood(K key) {
+      DataInputStream stream = new DataInputStream(new HashInputStream(key));
+      Set<Integer> unrepeatedSet = new HashSet<Integer>();
 
-        int[] hashes = new int[k];
-        for (int i = 0; i < hashes.length; i++) {
-            try {
-                hashes[i] = Math.abs(stream.readInt()) % m; // Massage value to be in [0,m)
-            } catch (IOException e) {
-                // Shouldn't be possible
-                throw new IllegalStateException("Hash generation failed", e);
+      int[] hashes = new int[k];
+      int num = 0, count = 0;
+      while(true) {
+         try {
+            num = Math.abs(stream.readInt()) % m;
+
+            if(unrepeatedSet.add(num)){
+               hashes[count++] = num; // Massage value to be in [0,m)
+               if( count == k)
+                  break;
             }
-        }
+         } catch (IOException e) {
+            // Shouldn't be possible
+            throw new IllegalStateException("Hash generation failed", e);
+         }
+      }
 
-        return hashes;
-    }
+      return hashes;
+   }
 
-    public byte[] getM(K key) {
-        DataInputStream stream = new DataInputStream(new HashInputStream(key));
+   public byte[] getM(K key) {
+      DataInputStream stream = new DataInputStream(new HashInputStream(key));
 
-        byte[] hashes = new byte[q / Byte.SIZE + 1];
-        for (int i = 0; i < hashes.length; i++) {
-            try {
-                hashes[i] = stream.readByte();
-            } catch (IOException e) {
-                // Shouldn't be possible
-                throw new IllegalStateException("Hash generation failed", e);
-            }
-        }
+      byte[] hashes = new byte[q / Byte.SIZE + 1];
+      for (int i = 0; i < hashes.length; i++) {
+         try {
+            hashes[i] = stream.readByte();
+         } catch (IOException e) {
+            // Shouldn't be possible
+            throw new IllegalStateException("Hash generation failed", e);
+         }
+      }
 
-        return hashes;
-    }
+      return hashes;
+   }
 
-    private class HashInputStream extends InputStream {
-        private byte[] data;
-        private long salt;
-        private MessageDigest md;
+   private class HashInputStream extends InputStream {
+      private byte[] data;
+      private long salt;
+      private MessageDigest md;
 
-        private Queue<Byte> buffer;
+      private Queue<Byte> buffer;
 
-        public HashInputStream(K key) {
-            this.data = ByteBuffer.allocate(Integer.SIZE / Byte.SIZE).putInt(key.hashCode())
-                                  .array(); // TODO: use .toString instead of hashCode to get a better hash range
-            this.salt = hashSeed;
+      public HashInputStream(K key) {
+         this.data = ByteBuffer.allocate(Integer.SIZE / Byte.SIZE).putInt(key.hashCode())
+               .array(); // TODO: use .toString instead of hashCode to get a better hash range
+         this.salt = hashSeed;
 
-            try {
-                md = MessageDigest.getInstance("MD5");
-            } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("Missing required hashing algorithm", e);
-            }
+         try {
+            md = MessageDigest.getInstance("MD5");
+         } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Missing required hashing algorithm", e);
+         }
 
-            buffer = new ArrayDeque<Byte>(md.getDigestLength());
+         buffer = new ArrayDeque<Byte>(md.getDigestLength());
+         topOff();
+      }
+
+      @Override
+      public int read() {
+         if (buffer.isEmpty()) {
             topOff();
-        }
+         }
+         return buffer.remove() - Byte.MIN_VALUE;
+      }
 
-        @Override
-        public int read() {
-            if (buffer.isEmpty()) {
-                topOff();
-            }
-            return buffer.remove() - Byte.MIN_VALUE;
-        }
+      private void topOff() {
+         md.update(ByteBuffer.allocate(Long.SIZE / Byte.SIZE).putLong(salt).array());
+         md.update(data);
 
-        private void topOff() {
-            md.update(ByteBuffer.allocate(Long.SIZE / Byte.SIZE).putLong(salt).array());
-            md.update(data);
+         for (byte b: md.digest()) {
+            buffer.add(b);
+         }
 
-            for (byte b: md.digest()) {
-                buffer.add(b);
-            }
-
-            salt++;
-        }
-    }
+         salt++;
+      }
+   }
 }
