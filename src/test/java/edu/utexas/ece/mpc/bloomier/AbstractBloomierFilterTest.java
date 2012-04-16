@@ -21,6 +21,12 @@ public abstract class AbstractBloomierFilterTest {
 
    private static final int NUMBER_OF_KEYS = 10000;
 
+   protected static final int M_VALUE = NUMBER_OF_KEYS * 5;
+   protected static final int K_VALUE = 10;
+   protected static final int Q_VALUE = 5 * 8; //5 bytes
+   protected static final int TIMEOUT = 10000; //10 seconds
+   protected static final long HASH_SEED = System.nanoTime();
+
    protected final Map<Integer, Integer> inBloomierFilter = new HashMap<Integer, Integer>();
    protected final Set<Integer> notInBloomierFilter = new HashSet<Integer>();
    private boolean alreadySetUp = false;
@@ -36,27 +42,23 @@ public abstract class AbstractBloomierFilterTest {
 
       while (numberOfKeysAdded < NUMBER_OF_KEYS) {
          int key = random.nextInt();
-         boolean putInBloomierFilter = random.nextInt(100) > 50;
 
-         if (inBloomierFilter.containsKey(key) || notInBloomierFilter.contains(key)) {
+         if (inBloomierFilter.containsKey(key)) {
             continue;
          }
-
-         if (putInBloomierFilter) {
-            inBloomierFilter.put(key, random.nextInt());
-         } else {
-            notInBloomierFilter.add(key);
-         }
-
+         inBloomierFilter.put(key, random.nextInt());
          numberOfKeysAdded++;
       }
 
-      if (inBloomierFilter.isEmpty()) {
-         inBloomierFilter.put(random.nextInt(), random.nextInt());
-      }
+      numberOfKeysAdded = 0;
+      while (numberOfKeysAdded < NUMBER_OF_KEYS) {
+         int key = random.nextInt();
 
-      if (notInBloomierFilter.isEmpty()) {
-         notInBloomierFilter.add(random.nextInt());
+         if (notInBloomierFilter.contains(key) || inBloomierFilter.containsKey(key)) {
+            continue;
+         }
+         notInBloomierFilter.add(key);
+         numberOfKeysAdded++;
       }
 
       alreadySetUp = true;
@@ -65,9 +67,6 @@ public abstract class AbstractBloomierFilterTest {
    protected abstract Integer getValueOf(Integer key);
 
    protected abstract Object createBloomFilter() throws TimeoutException;
-
-   @After
-   public abstract void clean();
 
    @Before
    public void setUp() throws Exception {
@@ -132,7 +131,6 @@ public abstract class AbstractBloomierFilterTest {
 
          if (getValueOf(key) != null) {
             falsePositiveCount++;
-            System.out.println("False positive detected! key=" + key);
          }
       }
       //false positive can happen

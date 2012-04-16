@@ -19,15 +19,11 @@ public class ImmutableBloomierFilterTest extends AbstractBloomierFilterTest {
 
    @Override
    protected Object createBloomFilter() throws TimeoutException {
-      uut = new ImmutableBloomierFilter<Integer, Integer>(inBloomierFilter, inBloomierFilter.keySet().size() * 10, 10, 64,
-                                                          Integer.class, 10000);
+      if (uut == null) {
+         uut = new ImmutableBloomierFilter<Integer, Integer>(inBloomierFilter, M_VALUE, K_VALUE, Q_VALUE, Integer.class,
+                                                             TIMEOUT, HASH_SEED);
+      }
       return uut;
-   }
-
-   @Override
-   public void clean() {
-      uut = null;
-      System.gc();
    }
 
    @Override

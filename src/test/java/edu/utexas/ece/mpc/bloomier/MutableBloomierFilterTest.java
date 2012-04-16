@@ -22,15 +22,10 @@ public class MutableBloomierFilterTest extends AbstractBloomierFilterTest {
 
    @Override
    protected Object createBloomFilter() throws TimeoutException {
-      uut = new MutableBloomierFilter<Integer, Integer>(inBloomierFilter, inBloomierFilter.keySet().size() * 10, 10, 64,
-                                                  10000);
+      if (uut == null) {
+         uut = new MutableBloomierFilter<Integer, Integer>(inBloomierFilter, M_VALUE, K_VALUE, Q_VALUE, TIMEOUT);
+      }
       return uut;
-   }
-
-   @Override
-   public void clean() {
-      uut = null;
-      System.gc();
    }
 
    @Override
@@ -49,6 +44,7 @@ public class MutableBloomierFilterTest extends AbstractBloomierFilterTest {
 
       assert 10 == value.intValue() : "Error. The key " + key + " must be in the Bloomier Filter with value 10" +
             ", but the Bloomier Filter returned " + value;
+      uut = null;
    }
 
    @Test(expected = IllegalArgumentException.class)
